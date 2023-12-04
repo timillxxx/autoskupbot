@@ -1,0 +1,47 @@
+import telebot
+
+bot = telebot.TeleBot('6240577686:AAFPkkKre4FrG-l513nWcoFA5s09cwriR2c')
+
+user_to_group = {}
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    inline_button = telebot.types.InlineKeyboardButton(text='Продать нитро', callback_data='sell_nitro')
+    keyboard.add(inline_button)
+    bot.send_message(message.chat.id, 'Привет! Нажми кнопку:', reply_markup=keyboard)
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    chat_id = call.message.chat.id
+
+    if call.data == 'sell_nitro':
+        bot.send_message(chat_id, 'Отправь ссылку на гиф (можно несколько), который хочешь продать:')
+        bot.register_next_step_handler(call.message, process_gif_link)
+    elif call.data == 'yes_nitro' or call.data == 'no_nitro':
+        user_id = call.from_user.id
+        if user_id in user_to_group:
+            group_chat_id = user_to_group[user_id]
+            username = call.from_user.username if call.from_user.username else f"User {user_id}"
+            response = 'принял' if call.data == 'yes_nitro' else 'отклонил'
+            bot.send_message(user_to_group[user_id], f"Пользователь @{username} {response} нитро.")
+            bot.send_message(user_id, f"Ваше нитро было {response}о в группе.")
+            del user_to_group[user_id]  # Remove the user from the mapping after processing
+        else:
+            bot.send_message(chat_id, 'Что-то пошло не так. Попробуйте снова.')
+
+def process_gif_link(message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    user_to_group[user_id] = chat_id
+
+    group_chat_id = -1002125457186  # Replace with your actual group chat ID
+    gif_links = message.text
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    inline_button = telebot.types.InlineKeyboardButton(text='Принять нитро', callback_data='yes_nitro')
+    inline_button1 = telebot.types.InlineKeyboardButton(text='Отклонить нитро', callback_data='no_nitro')
+    keyboard.add(inline_button, inline_button1)
+    bot.send_message(group_chat_id, f"Пользователь @{message.from_user.username} скинул гиф на продажу:\n{gif_links}", reply_markup=keyboard)
+    bot.send_message(chat_id, 'Ваш гиф успешно отправлен на обработку, ожидайте')
+
+bot.polling(none_stop=True)
